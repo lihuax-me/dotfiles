@@ -1,0 +1,48 @@
+#!/bin/bash
+
+WLP="/usr/bin/wl-paste"
+TRANS="/usr/bin/trans"
+
+# parse command line options
+brief_mode=false
+while getopts "b" opt; do
+  case "$opt" in
+    b) brief_mode=true ;;
+  esac
+done
+
+# get text from clipboard
+text=$($WLP --no-newline | sed '/^\s*$/d' | head -n 1)
+
+if [[ -z "$text" ]]; then
+  notify-send "剪贴板为空" "没有可翻译内容"
+  exit 1
+fi
+
+# check if the text contains Chinese characters
+if echo "$text" | grep -qP '[\p{Han}]'; then
+  direction="zh:en"
+else
+  direction="en:zh"
+fi
+
+# execute the translation command in a terminal
+if $brief_mode; then
+  # yank result in brief mode
+  result=$($TRANS $direction -b "$text")
+  
+  # brief mode: show result in kitty terminal and allow copying
+  kitty --class trans -o font_size=20 -e bash -c \
+    "echo '$result'; 
+     echo; 
+     echo \"Press 'y' to copy and close, or Enter to close.\";
+     read -n 1 -s -r key;
+     if [ \"\$key\" = \"y\" ]; then
+        wl-copy '$result';
+     fi
+     kitty @ close-window --self  # make sure kitty remote_control is open"
+else
+  # normal mode: show result in kitty terminal and wait for key press
+  trans_cmd="$TRANS $direction \"$text\""
+  kitty --class trans -e bash -c "$trans_cmd; echo; read -n 1 -s -r -p 'Press any key to close...'"
+fi

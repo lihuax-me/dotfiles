@@ -1,0 +1,24 @@
+#!/bin/bash
+
+# Check if we are inside a tmux session
+if [ -z "$TMUX" ]; then
+  echo "Error: Not inside a tmux session."
+  exit 1
+fi
+
+# Get current pane ID
+CURRENT_PANE="$(tmux display-message -p '#{pane_id}')"
+
+# Name of the target session
+TARGET_SESSION="background"
+
+# Check if the background session exists
+tmux has-session -t "$TARGET_SESSION" 2>/dev/null
+if [ $? -ne 0 ]; then
+  tmux new-session -d -s background -n temp
+  tmux break-pane -s "$CURRENT_PANE" -t background
+  tmux kill-window -t background:temp
+fi
+
+# Move current pane into a new window in the background session
+tmux break-pane -d -s "$CURRENT_PANE" -t "$TARGET_SESSION"

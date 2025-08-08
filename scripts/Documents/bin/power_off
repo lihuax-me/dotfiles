@@ -1,0 +1,20 @@
+#!/bin/bash
+
+# use wofi to select an action
+selected=$(echo -e "Shutdown\nReboot\nLogout" | wofi --dmenu --prompt="Choose action:")
+
+# execute the selected action
+case $selected in
+    "Shutdown")
+        systemctl poweroff
+        ;;
+    "Reboot")
+        systemctl reboot
+        ;;
+    "Logout")
+        hyprctl dispatch exit
+        ;;
+    *)
+        echo "No action selected."
+        ;;
+esac
