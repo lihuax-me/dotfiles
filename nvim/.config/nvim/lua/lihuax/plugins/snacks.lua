@@ -68,14 +68,14 @@ return {
 						key = "n",
 						desc = "Notes",
 						-- action = ":NvimTreeOpen ~/Documents/ob_repo",
-						action = ":cd ~/Documents/notes | Yazi",
+						action = ":cd $HOME/Documents/notes | Yazi",
 					},
 					{ icon = "󱗖 ", key = "d", desc = "Diary", action = "<leader>dd" },
 					{
 						icon = " ",
 						key = "w",
 						desc = "Blogs",
-						action = ":cd /home/lihuax/Documents/Onedrive/work/GitHub/zehua0417/zehua0417.github.io/source | Yazi",
+						action = ":cd $HOME/Documents/blog/src/content/posts | Yazi",
 					},
 					{
 						icon = "󰸖 ",
@@ -135,7 +135,7 @@ return {
 						icon = " ",
 						key = "C",
 						desc = "Config",
-						action = ":cd ~/.config/nvim | Yazi",
+						action = ":cd $HOME/.config/nvim | Yazi",
 					},
 					--{ icon = " ", key = "s", desc = "Restore Session", section = "session" },
 					{
@@ -301,8 +301,8 @@ return {
 				-- render the image in a floating window
 				-- only used if `opts.inline` is disabled
 				float = false,
-				max_width = 80,
-				max_height = 40,
+				max_width = 60,
+				max_height = 30,
 				-- Set to `true`, to conceal the image text when rendering inline.
 				-- (experimental)
 				---@param lang string tree-sitter language

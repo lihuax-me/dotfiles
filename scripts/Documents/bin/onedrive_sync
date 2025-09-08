@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+# onedrive_sync (gum-driven single script with spinner + proper wait)
+# Requirements: gum, rclone; optional: notify-send
+
+set -euo pipefail
+
+# --- Config ---
+LOCAL_BASE="/run/media/lihuax/C/OneDrive"
+REMOTE_BASE="Onedrive:"
+RCLONE_CONF="$HOME/.config/rclone/rclone.conf"
+LOG_DIR="$HOME/Documents/logs"
+mkdir -p "$LOG_DIR"
+
+# --- Helpers ---
+notify() {
+  if command -v notify-send >/dev/null 2>&1; then
+    notify-send "$@"
+  fi
+}
+
+require() {
+  local cmd="$1"
+  if ! command -v "$cmd" >/dev/null 2>&1; then
+    echo "$cmd is required but not found in PATH."
+    exit 1
+  fi
+}
+
+is_under_base() {
+  local p="$1"
+  case "${p%/}/" in
+    "${LOCAL_BASE%/}/"*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+abs_path() { realpath "$1"; }
+
+human_duration() {
+  local s="$1"
+  printf "%02d:%02d:%02d" $((s/3600)) $(((s%3600)/60)) $((s%60))
+}
+
+# --- Dependency checks ---
+require gum
+require rclone
+require realpath
+
+CURRENT_DIR="$(abs_path "$(pwd)")"
+
+# --- Header ---
+gum style --border double --padding "1 2" --margin "1 0" \
+  --foreground 213 "OneDrive Sync (gum)"
+
+# --- Direction ---
+DIRECTION="$(gum choose "Download (cloud → local)" "Upload (local → cloud)")"
+case "$DIRECTION" in
+  "Download (cloud → local)") MODE="download" ;;
+  "Upload (local → cloud)")   MODE="upload" ;;
+  *) gum style --foreground 196 "Invalid direction."; exit 1 ;;
+esac
+
+# --- Local directory selection (must be under LOCAL_BASE) ---
+gum style --foreground 45 "Select the local directory to sync (must be under $LOCAL_BASE)."
+
+CHOICE="$(gum choose \
+  "Use current directory: $CURRENT_DIR" \
+  "Type a path manually" \
+  "Pick from a list (filter)")"
+
+select_dir_from_list() {
+  local selection selected
+  selection="$(
+    { echo "/"; find "$LOCAL_BASE" -mindepth 1 -maxdepth 3 -type d -printf "%P\n" 2>/dev/null | sort; } \
+    | gum filter --placeholder "Search directories under $LOCAL_BASE"
+  )" || true
+  [[ -z "${selection:-}" ]] && return 1
+  if [[ "$selection" == "/" ]]; then
+    selected="$LOCAL_BASE"
+  else
+    selected="$LOCAL_BASE/$selection"
+  fi
+  printf '%s\n' "$(abs_path "$selected")"
+}
+
+read_dir_from_input() {
+  local in
+  in="$(gum input --placeholder "Absolute path under $LOCAL_BASE")" || true
+  [[ -z "${in:-}" ]] && return 1
+  printf '%s\n' "$(abs_path "$in")"
+}
+
+case "$CHOICE" in
+  "Use current directory: $CURRENT_DIR") SELECTED_DIR="$CURRENT_DIR" ;;
+  "Type a path manually")                SELECTED_DIR="$(read_dir_from_input)" || { gum style --foreground 244 "No path provided. Aborted."; exit 0; } ;;
+  "Pick from a list (filter)")           SELECTED_DIR="$(select_dir_from_list)" || { gum style --foreground 244 "No selection made. Aborted."; exit 0; } ;;
+  *) gum style --foreground 196 "Invalid selection."; exit 1 ;;
+esac
+
+# Validate directory
+if ! is_under_base "$SELECTED_DIR"; then
+  gum style --border normal --foreground 196 "Selected directory is outside $LOCAL_BASE. Aborted."
+  notify "Sync Failed" "Selected directory is outside $LOCAL_BASE"
+  exit 1
+fi
+
+# --- Compute paths ---
+RELATIVE_PATH="${SELECTED_DIR#$LOCAL_BASE/}"
+if [[ "$SELECTED_DIR" == "$LOCAL_BASE" ]]; then RELATIVE_PATH=""; fi
+REMOTE_PATH="$REMOTE_BASE$RELATIVE_PATH"
+
+# --- Prepare logging ---
+ts="$(date +%Y%m%d-%H%M%S)"
+rel_tag="${RELATIVE_PATH//\//_}"; [[ -z "$rel_tag" ]] && rel_tag="root"
+LOG_FILE="$LOG_DIR/rclone_sync_${MODE}_${rel_tag}_${ts}.log"
+
+# --- Info card ---
+if [[ "$MODE" == "download" ]]; then
+  SRC_DESC="Remote source: $REMOTE_PATH"
+  DST_DESC="Local target:  $SELECTED_DIR"
+else
+  SRC_DESC="Local source:  $SELECTED_DIR"
+  DST_DESC="Remote target: $REMOTE_PATH"
+fi
+
+gum style --border rounded --padding "1 2" --align left \
+  "Mode:         $MODE" \
+  "$SRC_DESC" \
+  "$DST_DESC" \
+  "Log file:     $LOG_FILE"
+
+# --- Confirm ---
+if ! gum confirm "Proceed with this sync?"; then
+  gum style --foreground 244 "Aborted by user."
+  exit 0
+fi
+
+# --- Build command ---
+RCLONE_FLAGS_BASE=( --config "$RCLONE_CONF" --transfers 16 --checkers 16 --drive-chunk-size 512M --tpslimit 10 --fast-list )
+RCLONE_STATS_FLAGS=( --log-level INFO --stats 5s --stats-one-line )
+
+if [[ "$MODE" == "download" ]]; then
+  RCLONE_CMD=( rclone sync "$REMOTE_PATH" "$SELECTED_DIR" "${RCLONE_FLAGS_BASE[@]}" "${RCLONE_STATS_FLAGS[@]}" )
+else
+  RCLONE_CMD=( rclone sync "$SELECTED_DIR" "$REMOTE_PATH" "${RCLONE_FLAGS_BASE[@]}" "${RCLONE_STATS_FLAGS[@]}" )
+fi
+
+# --- Start rclone in background; DO NOT detach the script. ---
+start_ts="$(date +%s)"
+(
+  "${RCLONE_CMD[@]}" &> "$LOG_FILE"
+) &
+pid=$!
+
+gum style --foreground 36 "Started rclone (PID $pid)."
+
+# --- Keep spinner alive until the PID exits (works for non-child PIDs too). ---
+gum spin --spinner dot --title "Sync in progress (PID $pid)" \
+  -- bash -c 'while kill -0 '"$pid"' 2>/dev/null; do sleep 0.3; done'
+
+# --- Now reap the child in the parent shell to get the real exit code. ---
+status=0
+if ! wait "$pid"; then
+  status=$?
+fi
+end_ts="$(date +%s)"
+elapsed="$(( end_ts - start_ts ))"
+
+# --- Summarize result ---
+last_stats="$(grep -E 'Transferred:' "$LOG_FILE" | tail -n 1 || true)"
+
+if [[ $status -eq 0 ]]; then
+  gum style --border normal --padding "1 2" --foreground 42 \
+    "Sync Completed Successfully" \
+    "Mode:     $MODE" \
+    "Duration: $(human_duration "$elapsed")" \
+    "Summary:  ${last_stats:-N/A}"
+  notify "Rclone Sync Completed" "Mode: $MODE | Path: ${RELATIVE_PATH:-/}"
+else
+  gum style --border normal --padding "1 2" --foreground 196 \
+    "Sync Failed" \
+    "Mode:     $MODE" \
+    "Duration: $(human_duration "$elapsed")" \
+    "Summary:  ${last_stats:-N/A}" \
+    "Log:      $LOG_FILE"
+  notify "Rclone Sync Failed" "Check the log: $LOG_FILE"
+fi
+
+gum style --foreground 244 "Last 20 log lines:"
+tail -n 20 "$LOG_FILE" | sed 's/^/  /'

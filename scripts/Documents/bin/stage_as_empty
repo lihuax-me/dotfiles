@@ -1,0 +1,193 @@
+#!/usr/bin/env bash
+# stage-as-empty-gum.sh
+# Purpose: interactively select files (untracked or unstaged-modified) and stage them as EMPTY blobs in the index.
+# It DOES NOT touch the working tree content.
+# Dependencies: bash >= 4, git, gum (https://github.com/charmbracelet/gum)
+set -euo pipefail
+
+# ---- Check gum ------------------------------------------------------------
+if ! command -v gum >/dev/null 2>&1; then
+  echo "gum not found. Please install gum first: https://github.com/charmbracelet/gum" >&2
+  echo "Examples:"
+  echo "  macOS:   brew install gum"
+  echo "  Linux:   brew install gum   # or: go install github.com/charmbracelet/gum@latest"
+  exit 1
+fi
+
+# ---- Helpers --------------------------------------------------------------
+
+# Compute the empty-blob id (works for SHA-1 or SHA-256 repos)
+empty_blob() {
+  git hash-object -t blob -w --stdin </dev/null
+}
+
+# Is a path tracked by git?
+is_tracked() {
+  git ls-files --error-unmatch -z -- "$1" >/dev/null 2>&1
+}
+
+# Label: [U] untracked, [M] modified-but-unstaged
+status_label() {
+  local p="$1"
+  if ! is_tracked "$p"; then
+    printf "[U]"
+  else
+    if git diff --name-only -z -- "$p" | grep -qz .; then
+      printf "[M]"
+    else
+      printf "[?]"
+    fi
+  fi
+}
+
+# File mode by executable bit
+file_mode() {
+  local p="$1"
+  if [ -x "$p" ]; then printf "100755"; else printf "100644"; fi
+}
+
+# Stage a single path as empty in the index (do not touch working tree)
+stage_as_empty() {
+  local p="$1"
+  # skip symlink
+  if [ -L "$p" ]; then
+    echo "skip symlink: $p" >&2
+    return 0
+  fi
+  # skip missing
+  if [ ! -e "$p" ]; then
+    echo "skip missing: $p" >&2
+    return 0
+  fi
+
+  local MODE; MODE=$(file_mode "$p")
+  local EMPTY; EMPTY=$(empty_blob)
+
+  if is_tracked "$p"; then
+    git update-index --cacheinfo "$MODE" "$EMPTY" "$p"
+  else
+    git update-index --add --cacheinfo "$MODE" "$EMPTY" "$p"
+  fi
+}
+
+# ---- Collect candidates ---------------------------------------------------
+
+declare -a CANDIDATES=()
+declare -A DEDUPE=()
+
+# Untracked (respect .gitignore)
+while IFS= read -r -d '' p; do
+  if [ -f "$p" ] || [ -h "$p" ]; then
+    if [[ -z "${DEDUPE[$p]:-}" ]]; then
+      CANDIDATES+=("$p"); DEDUPE["$p"]=1
+    fi
+  fi
+done < <(git ls-files -o --exclude-standard -z)
+
+# Tracked but unstaged modified
+while IFS= read -r -d '' p; do
+  if [ -e "$p" ] && { [ -f "$p" ] || [ -h "$p" ]; }; then
+    if [[ -z "${DEDUPE[$p]:-}" ]]; then
+      CANDIDATES+=("$p"); DEDUPE["$p"]=1
+    fi
+  fi
+done < <(git diff --name-only -z)
+
+if (( ${#CANDIDATES[@]} == 0 )); then
+  gum style --foreground 212 "No untracked or unstaged-modified files found. Nothing to stage-as-empty."
+  exit 0
+fi
+
+# Build menu items: "[U] path" or "[M] path"
+declare -a MENU_ITEMS=()
+declare -a U_ONLY=()
+declare -a M_ONLY=()
+for p in "${CANDIDATES[@]}"; do
+  label="$(status_label "$p")"
+  MENU_ITEMS+=("$label $p")
+  if [[ "$label" == "[U]" ]]; then U_ONLY+=("$p"); fi
+  if [[ "$label" == "[M]" ]]; then M_ONLY+=("$p"); fi
+done
+
+# ---- Quick pre-selection --------------------------------------------------
+# Allow the user to type 'u'/'m'/'um'/'mu'/'a' to auto-select,
+# otherwise fall back to the interactive multi-select.
+gum style --bold --underline "Select files to stage as EMPTY (index only):"
+gum style "Tip: Press <enter> for interactive selection; or type:"
+gum style --border normal --padding "0 1" \
+"u     => select all [U]" \
+"m     => select all [M]" \
+"um    => select all [U] and [M]" \
+"a     => select all" \
+"enter => interactively select"
+
+PRESEL="$(gum input --placeholder "enter to choose manually, or u/m/um/a")"
+PRESEL="${PRESEL,,}"  # to lowercase
+
+declare -a TO_STAGE=()
+
+if [[ -n "$PRESEL" ]]; then
+  case "$PRESEL" in
+    u)
+      TO_STAGE=("${U_ONLY[@]}")
+      ;;
+    m)
+      TO_STAGE=("${M_ONLY[@]}")
+      ;;
+    um|mu|a)
+      TO_STAGE=("${CANDIDATES[@]}")
+      ;;
+    *)
+      gum style --foreground 244 "Unrecognized input: '$PRESEL' — falling back to interactive selection."
+      ;;
+  esac
+fi
+
+# ---- Interactive selection with gum (fallback) ----------------------------
+if (( ${#TO_STAGE[@]} == 0 )); then
+  gum style "Use arrows/typing to filter; <tab> to multi-select; <enter> to confirm."
+  SELECTED=$(
+    printf "%s\n" "${MENU_ITEMS[@]}" \
+    | gum choose --no-limit --cursor-prefix " " --selected-prefix " " --unselected-prefix "  "
+  )
+  if [[ -z "${SELECTED// }" ]]; then
+    gum style --foreground 244 "Cancelled."
+    exit 0
+  fi
+  mapfile -t TO_STAGE < <(printf "%s\n" "$SELECTED" | sed -E 's/^\[[^]]+\] //')
+fi
+
+gum style --bold "Will stage as EMPTY in index:"
+printf '%s\n' "${TO_STAGE[@]}" | gum style --border normal --margin "0 0" --padding "0 1"
+
+if ! gum confirm "Proceed?"; then
+  gum style --foreground 244 "Aborted."
+  exit 0
+fi
+
+# ---- Execute with a spinner ----------------------------------------------
+gum spin --title "Updating index..." -- \
+bash -c '
+  set -euo pipefail
+  empty_blob() { git hash-object -t blob -w --stdin </dev/null; }
+  is_tracked() { git ls-files --error-unmatch -z -- "$1" >/dev/null 2>&1; }
+  file_mode() { if [ -x "$1" ]; then printf "100755"; else printf "100644"; fi; }
+  stage_as_empty_inner() {
+    local p="$1"
+    if [ -L "$p" ]; then return 0; fi
+    if [ ! -e "$p" ]; then return 0; fi
+    local MODE EMPTY; MODE=$(file_mode "$p"); EMPTY=$(empty_blob)
+    if is_tracked "$p"; then
+      git update-index --cacheinfo "$MODE" "$EMPTY" "$p"
+    else
+      git update-index --add --cacheinfo "$MODE" "$EMPTY" "$p"
+    fi
+  }
+  while IFS= read -r p; do
+    stage_as_empty_inner "$p"
+  done
+' <<<"$(printf '%s\n' "${TO_STAGE[@]}")"
+
+gum style --foreground 212 --bold "Done."
+gum style "Verify:"
+gum style --border normal --padding "0 1" "git diff --cached --stat" "git show :<path> | wc -c  # should be 0"

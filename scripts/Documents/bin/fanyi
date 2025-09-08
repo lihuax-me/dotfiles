@@ -5,9 +5,13 @@ TRANS="/usr/bin/trans"
 
 # parse command line options
 brief_mode=false
-while getopts "b" opt; do
+print_mode=false
+no_color=false
+while getopts "bpn" opt; do
   case "$opt" in
     b) brief_mode=true ;;
+    p) print_mode=true ;;
+    n) no_color=true ;;
   esac
 done
 
@@ -26,10 +30,24 @@ else
   direction="en:zh"
 fi
 
+# build trans options
+trans_opts=()
+$no_color && trans_opts+=("-no-ansi")
+
+if $print_mode; then
+  # -p: just print translation in current terminal
+  if $brief_mode; then
+    $TRANS "${trans_opts[@]}" "$direction" -b "$text"
+  else
+    $TRANS "${trans_opts[@]}" "$direction" "$text"
+  fi
+  exit 0
+fi
+
 # execute the translation command in a terminal
 if $brief_mode; then
   # yank result in brief mode
-  result=$($TRANS $direction -b "$text")
+  result=$($TRANS "${trans_opts[@]}" $direction -b "$text")
   
   # brief mode: show result in kitty terminal and allow copying
   kitty --class trans -o font_size=20 -e bash -c \
@@ -43,6 +61,6 @@ if $brief_mode; then
      kitty @ close-window --self  # make sure kitty remote_control is open"
 else
   # normal mode: show result in kitty terminal and wait for key press
-  trans_cmd="$TRANS $direction \"$text\""
+  trans_cmd="$TRANS ${trans_opts[*]} $direction \"$text\""
   kitty --class trans -e bash -c "$trans_cmd; echo; read -n 1 -s -r -p 'Press any key to close...'"
 fi

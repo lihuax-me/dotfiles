@@ -1,8 +1,7 @@
 #!/bin/bash
 
-MAILDIR="$HOME/Mail"  # 根据你的实际路径修改
+MAILDIR="$HOME/Mail"
 
-# 获取同步前的邮件数
 BEFORE=$(find "$MAILDIR" -type f -path "*/new/*" | wc -l)
 
 echo "[DEBUG] 邮件同步前：$BEFORE 封邮件"

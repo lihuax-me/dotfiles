@@ -2,6 +2,7 @@
 local scriptLanguages = {
 	python = "python",
 	r = "R",
+	rmd = "R",
 	sh = "bash",
 	julia = "julia",
 	lua = "lua",
@@ -9,8 +10,8 @@ local scriptLanguages = {
 
 -- List of supported compiled languages
 local compiledLanguages = {
-	c = '"cd build && cmake .. && cd .."',
-	cpp = '"cd build && cmake .. && cd .."',
+	c = '"cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug"',
+	cpp = '"cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug"',
 	tex = "mklex",
 }
 
@@ -73,8 +74,8 @@ end
 -- @param lang string Language key (c, cpp, tex)
 local function comilerlan_runner(lang)
 	if lang == "c" or lang == "cpp" then
-		vim.cmd('TermExec cmd="cd build && make"')
-		vim.cmd('TermExec cmd="cd .. && ./bin/main.bin"')
+		vim.cmd('TermExec cmd="cmake --build build -j $(nproc)"')
+		vim.cmd('TermExec cmd="./bin/main.bin"')
 	elseif lang == "tex" then
 		local filename = vim.fn.expand("%:t:r")
 		vim.cmd("!evince output/" .. filename .. ".pdf &")
@@ -101,10 +102,41 @@ local function run()
 	end
 end
 
+----------------------------------------------------------------------------------------------
+--- code from https://github.com/akinsho/toggleterm.nvim/issues/425?utm_source=chatgpt.com ---
+----------------------------------------------------------------------------------------------
+local function send_visual_lines()
+	-- visual markers only update after leaving visual mode
+	local esc = vim.api.nvim_replace_termcodes("<esc>", true, false, true)
+	vim.api.nvim_feedkeys(esc, "x", false)
+
+	-- get selected text
+	local start_line, start_col = unpack(vim.api.nvim_buf_get_mark(0, "<"))
+	local end_line, end_col = unpack(vim.api.nvim_buf_get_mark(0, ">"))
+	local lines = vim.fn.getline(start_line, end_line)
+
+	-- send selection with trimmed indent
+	local cmd = ""
+	local indent = nil
+	for _, line in ipairs(lines) do
+		if indent == nil and line:find("[^%s]") ~= nil then
+			indent = line:find("[^%s]")
+		end
+		-- (i)python interpreter evaluates sent code on empty lines -> remove
+		if not line:match("^%s*$") then
+			cmd = cmd .. line:sub(indent or 1) .. string.char(13) -- trim indent
+		end
+	end
+	require("toggleterm").exec(cmd, 1)
+end
+--------------------------------------------------------------------------------------------------
+--- end code from https://github.com/akinsho/toggleterm.nvim/issues/425?utm_source=chatgpt.com ---
+--------------------------------------------------------------------------------------------------
 -- Create user commands
 vim.api.nvim_create_user_command("ScriptlanRunner", open_scriptlan_runner, {})
 vim.api.nvim_create_user_command("CompilelanRunner", language_compiler, {})
 vim.api.nvim_create_user_command("RunRunner", run, {})
+vim.api.nvim_create_user_command("RunChunk", send_visual_lines, {})
 
 -- Set key mappings
 local key = vim.api.nvim_set_keymap
@@ -113,4 +145,4 @@ key("n", "<S-F5>", "<CMD>ScriptlanRunner<CR>", { noremap = true, silent = true }
 key("n", "<F29>", "<CMD>CompilelanRunner<CR>", { noremap = true, silent = true })
 key("n", "<C-F5>", "<CMD>CompilelanRunner<CR>", { noremap = true, silent = true })
 key("n", "<F5>", "<CMD>RunRunner<CR>", { noremap = true, silent = true })
-key("v", "<F5>", "<CMD>ToggleTermSendVisualLines<CR>", { noremap = true, silent = true })
+key("v", "<F5>", "<CMD>RunChunk<CR>", { noremap = true, silent = true })

@@ -2,10 +2,12 @@ require("lihuax.utils.changewd")
 require("lihuax.utils.artical")
 require("lihuax.utils.makeanki")
 require("lihuax.utils.runner")
+require("lihuax.utils.git")
 require("lihuax.utils.encryption")
 require("lihuax.utils.mail")
 require("lihuax.utils.greek")
 require("lihuax.utils.auto_update_time")
+require("lihuax.utils.words")
 
 ------------------------
 --- diary management ---

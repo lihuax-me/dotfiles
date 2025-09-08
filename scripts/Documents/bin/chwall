@@ -3,7 +3,11 @@
 # 查找图片文件
 # file=$(find ~/Pictures/wallpapers -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \) | fzf --preview 'chafa -s ${FZF_PREVIEW_COLUMNS}x${FZF_PREVIEW_LINES} {}')
 
-file=$(find ~/Pictures/wallpapers -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' -o -iname '*.gif' \) | fzf --preview='~/Documents/bin/preview {}')
+file=$(find "$HOME/Pictures/wallpapers" \
+  \( -type f -o -type l \) \
+  \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) \
+  -print0 | \
+  fzf --read0 --ansi --preview='$HOME/Documents/bin/preview {}')
 
 echo "选择的文件：$file"
 

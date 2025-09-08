@@ -1,0 +1,313 @@
+#!/usr/bin/env bash
+# pass_tui: A TUI manager for 'pass' (the standard unix password manager)
+# Requirements:
+# - pass, gpg
+# - gum (for TUI)
+# - git (if your password store is a git repo)
+# Notes:
+# - Comments are in English only.
+# - This script respects PASSWORD_STORE_DIR if set; otherwise ~/.password-store.
+# - Clipboard copy prefers 'pass -c' for passwords; other fields use pbcopy/xclip/wl-copy/clip.exe.
+
+set -euo pipefail
+
+# -------------------- Helpers --------------------
+
+require_cmd() { command -v "$1" >/dev/null 2>&1; }
+
+die() { echo "Error: $*" >&2; exit 1; }
+
+store_dir() {
+  printf "%s" "${PASSWORD_STORE_DIR:-$HOME/.password-store}"
+}
+
+is_git_store() {
+  [ -d "$(store_dir)/.git" ]
+}
+
+ensure_prereqs() {
+  require_cmd pass || die "'pass' not found"
+  require_cmd gum  || die "'gum' not found"
+  require_cmd gpg  || die "'gpg' not found"
+}
+
+editor_bin() {
+  if [ -n "${EDITOR:-}" ]; then printf "%s" "$EDITOR"
+  elif require_cmd nvim; then printf "nvim"
+  elif require_cmd vim; then printf "vim"
+  else printf "vi"
+  fi
+}
+
+copy_text() {
+  # $1: text to clipboard
+  if require_cmd pbcopy; then printf "%s" "$1" | pbcopy
+  elif require_cmd wl-copy; then printf "%s" "$1" | wl-copy
+  elif require_cmd xclip; then printf "%s" "$1" | xclip -selection clipboard
+  elif require_cmd xsel; then printf "%s" "$1" | xsel --clipboard --input
+  elif command -v clip.exe >/dev/null 2>&1; then printf "%s" "$1" | clip.exe
+  else
+    # Fallback: print as last resort
+    printf "%s\n" "$1"
+    gum style --foreground 178 "Clipboard tool not found; printed to stdout."
+  fi
+}
+
+list_entries() {
+  # Return list of entry names (relative paths without .gpg)
+  local dir; dir="$(store_dir)"
+  find "$dir" -type f -name '*.gpg' -print \
+    | sed -e "s#^$dir/##" -e 's/\.gpg$//' \
+    | sort
+}
+
+choose_entry() {
+  # Choose an entry via fuzzy filter; echo selected or empty
+  local entries sel
+  entries="$(list_entries)" || true
+  [ -z "$entries" ] && { gum style --foreground 178 "No entries found."; return 1; }
+  sel="$(printf "%s\n" "$entries" | gum filter --placeholder "Type to search entries" || true)"
+  [ -n "${sel:-}" ] && printf "%s" "$sel"
+}
+
+show_fields_table() {
+  # $1: entry name
+  # Render non-password lines (from 2nd line) as a table if 'key: value' found.
+  local body
+  body="$(pass show "$1" | tail -n +2 || true)"
+  [ -z "$body" ] && { gum style --foreground 244 "(No additional fields)"; return 0; }
+
+  # Try to detect "key: value" pairs; otherwise print as plain text.
+  if printf "%s\n" "$body" | grep -qE '^[A-Za-z0-9_. -]+:\s*'; then
+    printf "Key\tValue\n" > /tmp/pass_fields.tsv
+    # Preserve entire value after the first colon
+    printf "%s\n" "$body" | awk -F':' '{k=$1; $1=""; sub(/^:/,""); v=$0; gsub(/\t/,"    ",v); gsub(/^[ \t]+/,"",v); printf "%s\t%s\n", k, v}' >> /tmp/pass_fields.tsv
+    gum table < /tmp/pass_fields.tsv
+  else
+    printf "%s\n" "$body" | gum format
+  fi
+}
+
+copy_password() {
+  # $1: entry
+  pass -c "$1" >/dev/null 2>&1 || pass -c "$1"
+  gum style --foreground 212 "Password copied to clipboard (via pass -c)."
+}
+
+reveal_password() {
+  # $1: entry
+  local pw; pw="$(pass show "$1" | head -n1)"
+  gum style --border rounded --padding "1 2" --border-foreground 212 "Password" "$pw"
+}
+
+copy_named_field() {
+  # $1: entry
+  local body keys sel val
+  body="$(pass show "$1" | tail -n +2 || true)"
+  keys="$(printf "%s\n" "$body" | grep -E '^[A-Za-z0-9_. -]+:\s*' | awk -F':' '{print $1}' | sed '/^$/d' | sort -u)" || true
+  [ -z "$keys" ] && { gum style --foreground 178 "No 'key: value' style fields."; return 0; }
+  sel="$(printf "%s\n" "$keys" | gum choose --header "Pick a field to copy" || true)" || true
+  [ -z "${sel:-}" ] && return 0
+  # Extract the first occurrence of that key
+  val="$(printf "%s\n" "$body" | awk -v k="$sel" -F':' '$1==k{ $1=""; sub(/^:/,""); print substr($0,2) ; exit }')"
+  copy_text "$val"
+  gum style --foreground 212 "Field '$sel' copied."
+}
+
+edit_entry() {
+  # $1: entry
+  local ed; ed="$(editor_bin)"
+  EDITOR="$ed" pass edit "$1" || true
+  if is_git_store; then
+    # Show git status and ask to push
+    gum style --foreground 244 "Git status (password store):"
+    git -C "$(store_dir)" status --short || true
+    if gum confirm "Push changes to remote?"; then
+      gum spin --title "pass git push" -- pass git push
+      gum style --foreground 42 "Pushed."
+    fi
+  fi
+}
+
+show_history() {
+  # $1: entry
+  if ! is_git_store; then gum style --foreground 178 "Not a git-backed store."; return 0; fi
+  local path; path="$(store_dir)/$1.gpg"
+  [ -f "$path" ] || { gum style --foreground 178 "File not found in store."; return 0; }
+  gum style --foreground 244 "Last commits for $1:"
+  git -C "$(store_dir)" log --oneline -- "$path" | gum format
+  if gum confirm "Show last decrypted diff?"; then
+    # Show textual diff of armored content by pretty-printing binary with gpg -d
+    # Simplify: show git show of last commit touching this path
+    local last; last="$(git -C "$(store_dir)" log -n1 --pretty=format:%H -- "$path" || true)"
+    [ -n "$last" ] && git -C "$(store_dir)" show "$last" -- "$path" | gum format || true
+  fi
+}
+
+rename_entry() {
+  # $1: old entry
+  local new; new="$(gum input --placeholder "New entry path (e.g., mail/github.com)" )"
+  [ -z "$new" ] && return 0
+  pass mv "$1" "$new"
+  gum style --foreground 42 "Renamed to: $new"
+}
+
+delete_entry() {
+  # $1: entry
+  gum confirm "Permanently delete '$1' ?" || return 0
+  pass rm -r "$1"
+  gum style --foreground 42 "Deleted."
+  if is_git_store && gum confirm "Push deletion to remote?"; then
+    gum spin --title "pass git push" -- pass git push
+  fi
+}
+
+otp_menu() {
+  # $1: entry
+  if ! pass help 2>&1 | grep -q 'otp'; then
+    gum style --foreground 178 "pass-otp not available. Install 'pass-otp' extension."
+    return 0
+  fi
+  local action; action="$(printf "%s\n" "Show current OTP" "Copy OTP" | gum choose --header "OTP actions" || true)"
+  case "${action:-}" in
+    "Show current OTP") pass otp "$1" | gum style --border rounded --padding "1 2" --border-foreground 212 ;;
+    "Copy OTP") pass otp -c "$1"; gum style --foreground 212 "OTP copied."; ;;
+  esac
+}
+
+generate_entry() {
+  # Create a new entry using 'pass generate'
+  local name len incsym flags
+  name="$(gum input --placeholder "Entry path (e.g., mail/github.com)")"
+  [ -z "$name" ] && return 0
+  len="$(gum input --placeholder "Password length (e.g., 20)"; echo)"
+  [ -z "$len" ] && len="20"
+  if gum confirm "Include symbols?"; then
+    # Historically 'pass generate' includes symbols by default; '-n' disables.
+    flags=()
+  else
+    flags=("-n")
+  fi
+  if gum confirm "Copy to clipboard after generate?"; then
+    flags+=("-c")
+  fi
+  gum spin --title "Generating..." -- pass generate "${flags[@]}" "$name" "$len"
+  gum style --foreground 42 "Generated: $name"
+  if is_git_store && gum confirm "Push now?"; then
+    gum spin --title "pass git push" -- pass git push
+  fi
+}
+
+insert_entry() {
+  # Create a new entry with custom content via pass insert -m
+  local name content
+  name="$(gum input --placeholder "Entry path (e.g., mail/github.com)")"
+  [ -z "$name" ] && return 0
+  gum style --foreground 244 "Enter content: first line = password; subsequent lines = fields (key: value). Finish with Ctrl+D."
+  content="$(gum write --placeholder "password on first line\nuser: foo@example.com\nurl: https://example.com" || true)"
+  [ -z "$content" ] && { gum style --foreground 178 "Empty content. Aborted."; return 0; }
+  printf "%s" "$content" | pass insert -m "$name"
+  gum style --foreground 42 "Inserted: $name"
+  if is_git_store && gum confirm "Push now?"; then
+    gum spin --title "pass git push" -- pass git push
+  fi
+}
+
+sync_menu() {
+  # Git sync helpers for the store
+  if ! is_git_store; then gum style --foreground 178 "Not a git-backed store."; return 0; fi
+  local choice
+  choice="$(printf "%s\n" "Status" "Pull --rebase" "Push" "Fetch" "Show remotes" | gum choose --header "Git actions" || true)"
+  case "${choice:-}" in
+    "Status") git -C "$(store_dir)" status; gum confirm "Push?" && pass git push ;;
+    "Pull --rebase") gum spin --title "pass git pull --rebase" -- pass git pull --rebase ;;
+    "Push") gum spin --title "pass git push" -- pass git push ;;
+    "Fetch") gum spin --title "pass git fetch" -- pass git fetch ;;
+    "Show remotes") git -C "$(store_dir)" remote -v | gum format ;;
+  esac
+}
+
+backup_store() {
+  # Tar backup of the store (excluding .git if desired)
+  local dir out exclude_git
+  dir="$(store_dir)"
+  out="$(gum input --placeholder "Backup file (e.g., ~/password-store.tar.gz)"; echo)"
+  [ -z "$out" ] && out="$HOME/password-store-$(date +%Y%m%d).tar.gz"
+  if gum confirm "Exclude .git directory from backup?"; then
+    exclude_git="--exclude='.git'"
+  else
+    exclude_git=""
+  fi
+  gum spin --title "Creating backup..." -- bash -lc "tar czf \"$out\" -C \"$(dirname "$dir")\" $(basename "$dir") $exclude_git"
+  gum style --foreground 42 "Backup created: $out"
+}
+
+entry_menu() {
+  # $1: entry name
+  while true; do
+    local action
+    action="$(printf "%s\n" \
+      "Copy password" \
+      "Reveal password" \
+      "Show fields" \
+      "Copy a field" \
+      "Edit (decrypt in editor)" \
+      "OTP actions" \
+      "Git history & diff" \
+      "Rename/Move" \
+      "Delete" \
+      "Back" | gum choose --header "Entry: $1" || true)"
+    case "${action:-}" in
+      "Copy password") copy_password "$1" ;;
+      "Reveal password") if gum confirm "Display password in terminal?"; then reveal_password "$1"; fi ;;
+      "Show fields") show_fields_table "$1" ;;
+      "Copy a field") copy_named_field "$1" ;;
+      "Edit (decrypt in editor)") edit_entry "$1" ;;
+      "OTP actions") otp_menu "$1" ;;
+      "Git history & diff") show_history "$1" ;;
+      "Rename/Move") rename_entry "$1" ;;
+      "Delete") delete_entry "$1" ;;
+      "Back"|*) break ;;
+    esac
+  done
+}
+
+browse_entries() {
+  local sel
+  while true; do
+    sel="$(choose_entry || true)"
+    [ -z "${sel:-}" ] && break
+    entry_menu "$sel"
+  done
+}
+
+main_menu() {
+  ensure_prereqs
+  local dir; dir="$(store_dir)"
+  gum style --border rounded --padding "0 1" --border-foreground 212 \
+    "pass TUI — Store: $dir"
+
+  while true; do
+    local choice
+    choice="$(printf "%s\n" \
+      "Browse / Search entries" \
+      "New entry (generate password)" \
+      "New entry (insert multi-line)" \
+      "Sync (git)" \
+      "Backup store" \
+      "Quit" \
+      | gum choose --header "Main menu" || true)"
+    case "${choice:-}" in
+      "Browse / Search entries") browse_entries ;;
+      "New entry (generate password)") generate_entry ;;
+      "New entry (insert multi-line)") insert_entry ;;
+      "Sync (git)") sync_menu ;;
+      "Backup store") backup_store ;;
+      "Quit"|*) break ;;
+    esac
+  done
+}
+
+# -------------------- Entrypoint --------------------
+main_menu
+

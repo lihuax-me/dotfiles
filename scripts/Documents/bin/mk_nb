@@ -1,0 +1,44 @@
+#!/bin/bash
+# Usage: make_nb yourfile.py
+# This script generates a minimal Jupyter Notebook (.ipynb)
+# with the same basename as the provided .py file.
+
+if [ $# -eq 0 ]; then
+    echo "Please specify a .py filename, e.g.: ./make_nb.sh test.py"
+    exit 1
+fi
+
+# Remove .py extension to get notebook filename
+basename=$(basename "$1" .py)
+outfile="${basename}.ipynb"
+
+cat > "$outfile" << 'EOF'
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print('Hello Jupyter!')"
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "name": "python"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
+}
+EOF
+
+echo "$outfile created successfully!"
+

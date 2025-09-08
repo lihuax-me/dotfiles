@@ -74,6 +74,7 @@ plugins=(
   git
   git-prompt
   # autojump
+  zsh-vi-mode
   urltools
   # bgnotify
   zsh-autosuggestions
@@ -85,6 +86,29 @@ plugins=(
 source $ZSH/oh-my-zsh.sh
 
 # User configuration
+
+# Use Ctrl-f to accept the whole suggestion
+bindkey -M viins '^f' autosuggest-accept
+bindkey -M emacs '^f' autosuggest-accept
+
+# Use Ctrl-l to accept the whole suggestion
+bindkey -M viins '^l' autosuggest-accept
+bindkey -M emacs '^l' autosuggest-accept
+
+# Use Ctrl-e to accept the suggestion and immediately run the command
+bindkey -M viins '^e' autosuggest-execute
+bindkey -M emacs '^e' autosuggest-execute
+
+# Optional: a key to clear the suggestion
+bindkey -M viins '^g' autosuggest-clear
+bindkey -M emacs '^g' autosuggest-clear
+
+
+
+autoload -Uz edit-command-line
+zle -N edit-command-line
+
+bindkey -M viins '^x^e' edit-command-line
 
 # export MANPATH="/usr/local/man:$MANPATH"
 

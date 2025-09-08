@@ -13,7 +13,7 @@ return {
 		code_font_family = "Maple Mono NF CN",
 		show_workspace = true,
 		has_line_number = true,
-		watermark = " @zehua0417",
+		watermark = " @lihuax-lab",
 	},
 }
 

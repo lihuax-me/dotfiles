@@ -6,6 +6,9 @@ export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
 export https_proxy=http://127.0.0.1:7897 http_proxy=http://127.0.0.1:7897 all_proxy=socks5://127.0.0.1:7897
 
+# vi mode
+set -o vi
+
 # If not running interactively, don't do anything
 [[ $- != *i* ]] && return
 
@@ -24,6 +27,8 @@ export PAGER=less
 EDITOR=/usr/bin/nvim
 #EDITOR=/usr/bin/emacs
 #EDITOR=/usr/bin/nano
+# export GIT_EDITOR="nvr -cc split --remote-wait +'set bufhidden=wipe'"
+export GIT_EDITOR="nvim"
 export EDITOR
 
 ## The maximum number of lines in your history file
@@ -94,10 +99,9 @@ if [[ -n "$BASH_VERSION" ]]; then
   fi
 fi
 
-#
-# # ex - archive extractor
-# # usage: ex <file>
-ex ()
+# ex - archive extractor
+# usage: ex <file>
+function ex ()
 {
   if [ -f $1 ] ; then
     case $1 in
@@ -119,6 +123,12 @@ ex ()
   fi
 }
 
+# runbg - run cmd on background
+# usage: runbg <cmd>
+function runbg() {
+  "$@" 2>&1 &
+}
+
 if [ -f ~/.config/.bash_aliases ]; then
     . ~/.config/.bash_aliases
 fi
@@ -137,6 +147,7 @@ export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 # path
 export PATH="$PATH:/usr/bin"
 export PATH="$PATH:/home/lihuax/Documents/bin"
+export PATH="$PATH:/home/lihuax/.local/share/JetBrains/Toolbox/scripts"
 export PATH="$PATH:/home/lihuax/miniconda3/bin"               # conda
 export PATH="$PATH:/home/lihuax/.juliaup/bin"                 # julia
 export PATH="$PATH:/usr/local/texlive/2024/texmf-dist/doc/man"      # latex
@@ -214,7 +225,9 @@ elif [[ -n "$ZSH_VERSION" ]]; then
 fi
 
 
-if [ -n "$TMUX" ] || [ "$TERM" = "xterm-256color" ]; then
+if [ -n "$NVIM" ]; then
+  :
+elif [ -n "$TMUX" ] || [ "$TERM" = "xterm-256color" ]; then
   fastfetch --config arch
 else
   fastfetch

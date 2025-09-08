@@ -1,6 +1,6 @@
 return {
 	"kevinhwang91/nvim-ufo",
-	event = { "BufReadPre", "BufNewFile" },
+	-- event = { "BufReadPre", "BufNewFile" },
 	dependencies = { "kevinhwang91/promise-async" },
 	config = function()
 		local handler = function(virtText, lnum, endLnum, width, truncate)
@@ -31,7 +31,7 @@ return {
 			return newVirtText
 		end
 
-		vim.o.foldcolumn = "5" -- '0' is not bad
+		vim.o.foldcolumn = "0" -- '0' is not bad
 		vim.o.foldlevel = 99 -- Using ufo provider need a large value, feel free to decrease the value
 		vim.o.foldlevelstart = 99
 		vim.o.foldenable = true
@@ -39,13 +39,20 @@ return {
 		--vim.o.fillchars = [[eob: ,fold: ,foldopen:,foldsep: ,foldclose:]]
 		vim.o.fillchars = [[foldopen:,foldclose:]]
 
-		-- Using ufo provider need remap `zR` and `zM`. If Neovim is 0.6.1, remap yourself
-		vim.keymap.set("n", "zR", require("ufo").openAllFolds)
-		vim.keymap.set("n", "zM", require("ufo").closeAllFolds)
+		local ufo = require("ufo")
+
+		vim.keymap.set("n", "zR", ufo.openAllFolds)
+		vim.keymap.set("n", "zM", ufo.closeAllFolds)
+		vim.keymap.set("n", "zp", function()
+			-- Try to peek folded lines under the cursor
+			local winid = ufo.peekFoldedLinesUnderCursor()
+			if not winid then
+				-- If no folded lines, fall back to opening the fold
+				ufo.openFoldsExceptKinds()
+			end
+		end, { desc = "Peek folded lines" })
 
 		-- set provider
-
-		local ufo = require("ufo")
 
 		-- 定义函数以检测 Markdown 中的 callout 块
 		local function get_markdown_callout_folds(bufnr)

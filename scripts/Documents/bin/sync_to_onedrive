@@ -1,4 +1,5 @@
 #!/bin/bash
+# sync_to_onedrive
 
 # Define the local and remote root directories
 LOCAL_BASE="/run/media/lihuax/C/OneDrive"

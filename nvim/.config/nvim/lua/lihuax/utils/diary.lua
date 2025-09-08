@@ -4,7 +4,7 @@
 local luatz = require("luatz")
 local M = {}
 
-M.BASE_DIR = "/home/lihuax/Onedrive/work/ob_repo/diary"
+M.BASE_DIR = "/home/lihuax/Documents/notes/diary/"
 
 -- Get ISO week number using luatz(but start with Sunday)
 function M.getWeekNumberOfYear()
@@ -54,7 +54,7 @@ function M.touch_weekly_journal()
 	local iso_year = date:strftime("%G")
 	local week_number = M.getWeekNumberOfYear()
 
-	local year_path = string.format("%s/%04d", M.BASE_DIR, iso_year)
+	local year_path = string.format("%s/%04d/Weekly", M.BASE_DIR, iso_year)
 	local file_path = string.format("%s/%04dW%02d.md", year_path, iso_year, week_number)
 	local gpg_file_path = file_path .. ".gpg"
 

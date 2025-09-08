@@ -13,21 +13,20 @@ vim.g.mapleader = " "
 -----------------
 
 keymap.set("n", "<leader>w", "<cmd>w!<CR>", { desc = "Forcee Write" })
+keymap.set("n", "<leader>rr", "<cmd>e!<CR>", { desc = "Forcee Reload" })
 
--- 句子跳转
-local function search_sentence(forward)
-	local pattern = "[.!?]\\|</u>\\|</span>\\|</p>"
-	local cmd = forward and "/" .. pattern .. "/e" or "?" .. pattern .. "/e"
-	vim.cmd("silent! normal! " .. cmd .. "\r")
-	vim.cmd("nohlsearch")
-end
-
-keymap.set("n", ")", function()
-	search_sentence(true)
-end, { noremap = true })
-keymap.set("n", "(", function()
-	search_sentence(false)
-end, { noremap = true })
+-- local function search_sentence(forward)
+-- 	local pattern = "[.!?]\\|</u>\\|</span>\\|</p>"
+-- 	local cmd = forward and "/" .. pattern .. "/e" or "?" .. pattern .. "/e"
+-- 	vim.cmd("silent! normal! " .. cmd .. "\r")
+-- 	vim.cmd("nohlsearch")
+-- end
+-- keymap.set("n", ")", function()
+-- 	search_sentence(true)
+-- end, { noremap = true })
+-- keymap.set("n", "(", function()
+-- 	search_sentence(false)
+-- end, { noremap = true })
 
 -- Hint: see `:h vim.map.set()`
 -- Better window navigation
@@ -81,12 +80,12 @@ keymap.set("n", "<leader>tf", "<cmd>tabnew %<CR>", { desc = "Open current buffer
 -----------------
 
 -- 句子跳转
-keymap.set("v", ")", function()
-	search_sentence(true)
-end, { noremap = true })
-keymap.set("v", "(", function()
-	search_sentence(false)
-end, { noremap = true })
+-- keymap.set("v", ")", function()
+-- 	search_sentence(true)
+-- end, { noremap = true })
+-- keymap.set("v", "(", function()
+-- 	search_sentence(false)
+-- end, { noremap = true })
 -- keymap.set("v", ")", "/[.!?]\\|</u\\.>\\|</span>\\|</p>/e<CR>", { silent = true })
 -- keymap.set("v", "(", "?[.!?]\\|</u\\.>\\|</span>\\|</p>/e<CR>", { silent = true })
 
@@ -98,12 +97,12 @@ keymap.set("v", ">", ">gv", opts)
 -- Operator pending mode --
 ---------------------------
 
-keymap.set({ "o", "x" }, "i)", function()
-	search_sentence(true)
-end, { noremap = true })
-keymap.set({ "o", "x" }, "i(", function()
-	search_sentence(false)
-end, { noremap = true })
+-- keymap.set({ "o", "x" }, "i)", function()
+-- 	search_sentence(true)
+-- end, { noremap = true })
+-- keymap.set({ "o", "x" }, "i(", function()
+-- 	search_sentence(false)
+-- end, { noremap = true })
 
 ----------------
 --- terminal ---

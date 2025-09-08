@@ -6,8 +6,12 @@ alias grep='grep --color=auto'
 alias h=history
 alias jobs='jobs -l'
 #alias log=logout
-alias cls=clear
+alias cls='clear && fastfetch --config arch'
 alias edit=$EDITOR
+# alias nvim='nvim --listen /tmp/nvim-server.pipe'
+
+# Option 2: rely on $NVIM (Neovim auto-exports when embedded)
+# 如果你在 Neovim 里以 :LazyGit 启动 lazygit.nvim，$NVIM 会存在。
 # alias restore=/usr/local/local_dfs/bin/restore
 
 # Some better definitions
@@ -45,5 +49,3 @@ alias ma='tldr'
 alias lg='lazygit'
 alias mail='neomutt'
 alias ii='nautilus'
-alias time='tuime'
-alias pp='passepartui'

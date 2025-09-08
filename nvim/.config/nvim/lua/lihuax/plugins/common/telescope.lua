@@ -16,11 +16,13 @@ return {
 		"nvim-tree/nvim-web-devicons",
 		"folke/todo-comments.nvim",
 		"dharmx/telescope-media.nvim",
+		"allaman/emoji.nvim",
 	},
 	config = function()
 		local telescope = require("telescope")
 		local actions = require("telescope.actions")
 		local canned = require("telescope._extensions.media.lib.canned")
+		local ts = require("telescope").load_extension("emoji")
 
 		telescope.setup({
 			defaults = {
@@ -61,5 +63,7 @@ return {
 		keymap.set("n", "<leader>fc", "<cmd>Telescope grep_string<cr>", { desc = "Find string under cursor in cwd" })
 		keymap.set("n", "<leader>fb", "<cmd>Telescope buffers<cr>", { desc = "Fuzzy find buffers" })
 		keymap.set("n", "<leader>ft", "<cmd>TodoTelescope<cr>", { desc = "Find todos" })
+		keymap.set("n", "<leader>fe", ts.emoji, { desc = "Find Emoji" })
+		keymap.set("n", "<leader>ei", '<cmd>lua require("emoji").insert()<cr>', { desc = "inset emoji" })
 	end,
 }

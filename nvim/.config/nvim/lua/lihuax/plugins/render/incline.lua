@@ -2,8 +2,17 @@ return {
 	"b0o/incline.nvim",
 	-- Optional: Lazy load Incline
 	event = "VeryLazy",
+	dependencies = { "nvim-web-devicons", "SmiteshP/nvim-navic" },
 	config = function()
 		local devicons = require("nvim-web-devicons")
+		local helpers = require("incline.helpers")
+		local navic = require("nvim-navic")
+
+		require("lspconfig").clangd.setup({
+			on_attach = function(client, bufnr)
+				navic.attach(client, bufnr)
+			end,
+		})
 		require("incline").setup({
 			render = function(props)
 				local filename = vim.fn.fnamemodify(vim.api.nvim_buf_get_name(props.buf), ":t")
@@ -49,15 +58,33 @@ return {
 					return label
 				end
 
+				local modified = vim.bo[props.buf].modified
+				local res = {
+					ft_icon and { " ", ft_icon, " ", guibg = ft_color, guifg = helpers.contrast_color(ft_color) } or "",
+					" ",
+					{ filename, gui = modified and "bold,italic" or "bold" },
+					guibg = "#44406e",
+				}
+				if props.focused then
+					for _, item in ipairs(navic.get_data(props.buf) or {}) do
+						table.insert(res, {
+							{ " > ", group = "NavicSeparator" },
+							{ item.icon, group = "NavicIcons" .. item.type },
+							{ item.name, group = "NavicText" },
+						})
+					end
+				end
+				table.insert(res, " ")
+
 				return {
 					{ get_diagnostic_label() },
 					{ get_git_diff() },
-					{ (ft_icon or "") .. " ", guifg = ft_color, guibg = "none" },
-					{ filename .. " ", gui = vim.bo[props.buf].modified and "bold,italic" or "bold" },
-					{ "┊ 󱂬 " .. vim.api.nvim_win_get_number(props.win), group = "DevIconWindows" },
+					-- { (ft_icon or "") .. " ", guifg = ft_color, guibg = "none" },
+					-- { filename .. " ", gui = vim.bo[props.buf].modified and "bold,italic" or "bold" },
+					res,
+					-- { "┊ 󱂬 " .. vim.api.nvim_win_get_number(props.win), group = "DevIconWindows" },
 				}
 			end,
 		})
 	end,
 }
-

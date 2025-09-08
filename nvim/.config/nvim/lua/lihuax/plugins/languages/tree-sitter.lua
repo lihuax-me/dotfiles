@@ -3,8 +3,8 @@ return {
 	event = { "BufReadPre", "BufNewFile" },
 	build = ":TSUpdate",
 	dependencies = {
-		-- "windwp/nvim-ts-autotag",
 		"nvim-treesitter/playground",
+		"nvim-treesitter/nvim-treesitter-textobjects",
 	},
 	config = function()
 		-- import nvim-treesitter plugin
@@ -41,6 +41,7 @@ return {
 				"query",
 				"vimdoc",
 				"c",
+				"cpp",
 			},
 			incremental_selection = {
 				enable = true,
@@ -76,6 +77,12 @@ return {
 			pattern = "markdown",
 			callback = function()
 				vim.cmd([[syntax match htmlUnderline /<u>\zs.\{-}\ze<\/u>/ containedin=ALL]])
+			end,
+		})
+		vim.api.nvim_create_autocmd("FileType", {
+			pattern = "markdown",
+			callback = function()
+				vim.cmd([[syntax match htmlHighlight /<mark>\zs.\{-}\ze<\/mark>/ containedin=ALL]])
 			end,
 		})
 	end,

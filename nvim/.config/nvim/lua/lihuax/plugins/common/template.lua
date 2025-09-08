@@ -1,5 +1,5 @@
 return {
-	"glepnir/template.nvim",
+	"nvimdev/template.nvim",
 	cmd = { "Template", "TemProject" },
 	keys = {
 		{ "<leader>tl", ":Template ", desc = "Insert template" },
@@ -11,6 +11,14 @@ return {
 			author = "Lihuax",
 			email = "zehuali0417@gmail.com",
 		})
+
+		-- Register {{_projectname_}} -> current project folder name
+		require("template").register("{{_projectname_}}", function()
+			-- Prefer buffer's dir; fallback to CWD
+			local bufdir = vim.fn.expand("%:p:h")
+			local base = bufdir ~= "" and vim.fn.fnamemodify(bufdir, ":t") or vim.fn.fnamemodify(vim.fn.getcwd(), ":t")
+			return base
+		end)
 
 		local function get_weekday_date(today, n)
 			-- Parse the input date string
@@ -37,7 +45,7 @@ return {
 			local target_date = os.date("%Y-%m-%d", target_timestamp)
 			local target_month = os.date("%b", target_timestamp)
 			local target_day = os.date("%A", target_timestamp)
-			return string.format("[[%s/Diary_%s.md|%s]]", target_month, target_date, target_day)
+			return string.format("[[diary/%s/%s/Diary_%s|%s]]", year, target_month, target_date, target_day)
 		end
 
 		-- local function get_date_days_ago(days)
@@ -77,6 +85,9 @@ return {
 
 		require("template").register("{{_lastweeknum_}}", function()
 			return getWeekNumberOfYear(os.time()) - 1
+		end)
+		require("template").register("{{_weeknum_}}", function()
+			return getWeekNumberOfYear(os.time())
 		end)
 		require("template").register("{{_nextweeknum_}}", function()
 			return getWeekNumberOfYear(os.time()) + 1

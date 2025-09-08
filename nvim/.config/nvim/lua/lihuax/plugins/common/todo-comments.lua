@@ -34,10 +34,10 @@ return {
 				NOTE = { icon = " ", color = "hint", alt = { "INFO" } },
 				TEST = { icon = "󰙨 ", color = "test", alt = { "TESTING", "PASSED", "FAILED" } },
 			},
-			gui_style = {
-				fg = "NONE", -- The gui style to use for the fg highlight group.
-				bg = "BOLD", -- The gui style to use for the bg highlight group.
-			},
+			-- gui_style = {
+			-- 	fg = "NONE", -- The gui style to use for the fg highlight group.
+			-- 	bg = "NONE", -- The gui style to use for the bg highlight group.
+			-- },
 			merge_keywords = true, -- when true, custom keywords will be merged with the defaults
 			-- highlighting of the line containing the todo comment
 			-- * before: highlights before the keyword (typically comment characters)
@@ -49,7 +49,7 @@ return {
 				multiline_context = 10, -- extra lines that will be re-evaluated when changing a line
 				before = "", -- "fg" or "bg" or empty
 				keyword = "wide", -- "fg", "bg", "wide", "wide_bg", "wide_fg" or empty. (wide and wide_bg is the same as bg, but will also highlight surrounding characters, wide_fg acts accordingly but with fg)
-				after = "fg", -- "fg" or "bg" or empty
+				after = "", -- "fg" or "bg" or empty
 				pattern = [[.*<(KEYWORDS)\s*:]], -- pattern or table of patterns, used for highlighting (vim regex)
 				comments_only = true, -- uses treesitter to match keywords in comments only
 				max_line_len = 400, -- ignore lines longer than this

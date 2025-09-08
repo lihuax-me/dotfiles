@@ -93,12 +93,4 @@ command("Greek", function()
 	pick()
 end, { nargs = 0 })
 
-key("n", "<leader>gi", "<cmd>Greek<CR>", { desc = "Insert Greek letters" })
-
-vim.keymap.set("i", "<C-g>", function()
-	vim.cmd("stopinsert")
-	vim.schedule(function()
-		pick()
-		vim.cmd("startinsert")
-	end)
-end, { desc = "Insert Greek letter in Insert Mode" })
+key("n", "<leader>fg", "<cmd>Greek<CR>", { desc = "Find Greek letters" })

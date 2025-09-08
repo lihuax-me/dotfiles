@@ -1,7 +1,8 @@
 return {
 	"allaman/emoji.nvim",
 	version = "1.0.0", -- optionally pin to a tag
-	ft = "markdown", -- adjust to your needs
+	-- ft = "markdown", -- adjust to your needs
+	event = "VeryLazy",
 	dependencies = {
 		-- util for handling paths
 		"nvim-lua/plenary.nvim",
@@ -21,10 +22,5 @@ return {
 	},
 	config = function(_, opts)
 		require("emoji").setup(opts)
-		-- optional for telescope integration
-		local ts = require("telescope").load_extension("emoji")
-		vim.keymap.set("n", "<leader>fe", ts.emoji, { desc = "Find Emoji" })
-		-- lua require("emoji").insert()
-		vim.keymap.set("n", "<leader>ei", '<cmd>lua require("emoji").insert()<cr>', { desc = "inset emoji" })
 	end,
 }

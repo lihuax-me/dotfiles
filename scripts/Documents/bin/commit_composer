@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# commit_composer.sh
+set -euo pipefail
+
+# Ensure staged changes exist
+if git diff --cached --quiet; then
+  echo "❌ No staged changes. Please 'git add' files before committing."
+  exit 1
+fi
+
+# Choose commit type
+type="$(printf "%s\n" feat fix docs style refactor perf test chore | gum choose --header "Commit type")"
+
+# Optional scope
+scope="$(gum input --placeholder "scope (optional)")"
+
+# Subject (single line, required)
+subject="$(gum input --placeholder "short, imperative subject")"
+if [ -z "$subject" ]; then
+  echo "❌ Subject cannot be empty."
+  exit 1
+fi
+
+# Body (multi-line, optional, Ctrl+D to finish)
+body="$(gum write --placeholder "Detailed description (Ctrl+D to finish)" --width 80 --height 10)"
+
+# Build header
+header="$type"
+[ -n "$scope" ] && header="$header($scope)"
+header="$header: $subject"
+
+# Preview
+gum style --border rounded --padding "1 2" --border-foreground 212 \
+  "Commit Preview" "$(printf "%s\n\n%s" "$header" "$body")"
+
+# Confirm and commit
+if gum confirm "Use this commit message?"; then
+  if [ -n "$body" ]; then
+    git commit -m "$header" -m "$body" || {
+      echo "❌ git commit failed."
+      exit 1
+    }
+  else
+    git commit -m "$header" || {
+      echo "❌ git commit failed."
+      exit 1
+    }
+  fi
+else
+  echo "Commit aborted."
+  exit 1
+fi

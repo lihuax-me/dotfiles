@@ -11,7 +11,7 @@
 #include"../include/{{_file_name_}}.h"
 
 // Constructor
-{{_camel_file_}}::{{_camel_file_}}() {}
+{{_camel_file_}}::{{_camel_file_}}() {};
 
 // Destructor
 {{_camel_file_}}::~{{_camel_file_}}() = default;

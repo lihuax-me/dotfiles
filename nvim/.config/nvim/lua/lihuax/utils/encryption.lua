@@ -58,5 +58,5 @@ command("EncryptFile", encrypt_file, {})
 command("DecryptFile", decrypt_file, {})
 
 -- Set key mappings for quick access
-key("n", "<leader>ge", ":EncryptFile<CR>", { noremap = true, silent = true })
-key("n", "<leader>gd", ":DecryptFile<CR>", { noremap = true, silent = true })
+key("n", "<leader>ce", ":EncryptFile<CR>", { noremap = true, silent = true })
+key("n", "<leader>cd", ":DecryptFile<CR>", { noremap = true, silent = true })
