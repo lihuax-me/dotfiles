@@ -244,41 +244,68 @@ backup_store() {
 
 entry_menu() {
   # $1: entry name
-  while true; do
-    local action
-    action="$(printf "%s\n" \
-      "Copy password" \
-      "Reveal password" \
-      "Show fields" \
-      "Copy a field" \
-      "Edit (decrypt in editor)" \
-      "OTP actions" \
-      "Git history & diff" \
-      "Rename/Move" \
-      "Delete" \
-      "Back" | gum choose --header "Entry: $1" || true)"
-    case "${action:-}" in
-      "Copy password") copy_password "$1" ;;
-      "Reveal password") if gum confirm "Display password in terminal?"; then reveal_password "$1"; fi ;;
-      "Show fields") show_fields_table "$1" ;;
-      "Copy a field") copy_named_field "$1" ;;
-      "Edit (decrypt in editor)") edit_entry "$1" ;;
-      "OTP actions") otp_menu "$1" ;;
-      "Git history & diff") show_history "$1" ;;
-      "Rename/Move") rename_entry "$1" ;;
-      "Delete") delete_entry "$1" ;;
-      "Back"|*) break ;;
-    esac
-  done
+  # One-shot action menu: do one action, then exit the entire script.
+  local action
+  action="$(printf "%s\n" \
+    "Copy password" \
+    "Reveal password" \
+    "Show fields" \
+    "Copy a field" \
+    "Edit (decrypt in editor)" \
+    "OTP actions" \
+    "Git history & diff" \
+    "Rename/Move" \
+    "Delete" \
+    "Back" | gum choose --header "Entry: $1" || true)"
+
+  case "${action:-}" in
+    "Copy password")
+      copy_password "$1"
+      ;;
+    "Reveal password")
+      # Keep the safety confirmation but exit regardless afterward.
+      if gum confirm "Display password in terminal?"; then
+        reveal_password "$1"
+      fi
+      ;;
+    "Show fields")
+      show_fields_table "$1"
+      ;;
+    "Copy a field")
+      copy_named_field "$1"
+      ;;
+    "Edit (decrypt in editor)")
+      edit_entry "$1"
+      ;;
+    "OTP actions")
+      otp_menu "$1"
+      ;;
+    "Git history & diff")
+      show_history "$1"
+      ;;
+    "Rename/Move")
+      rename_entry "$1"
+      ;;
+    "Delete")
+      delete_entry "$1"
+      ;;
+    "Back"|*)
+      # Do nothing; fall through to exit.
+      ;;
+  esac
+
+  # After any terminal action (or cancel), exit the whole script.
+  exit 0
 }
 
 browse_entries() {
+  # Choose one entry once, then perform exactly one action and exit.
   local sel
-  while true; do
-    sel="$(choose_entry || true)"
-    [ -z "${sel:-}" ] && break
-    entry_menu "$sel"
-  done
+  sel="$(choose_entry || true)"
+  [ -z "${sel:-}" ] && exit 0
+  entry_menu "$sel"
+  # Safety: if entry_menu ever returns, still exit.
+  exit 0
 }
 
 main_menu() {
