@@ -8,25 +8,23 @@ set -euo pipefail
 # ---- Check gum ------------------------------------------------------------
 if ! command -v gum >/dev/null 2>&1; then
   echo "gum not found. Please install gum first: https://github.com/charmbracelet/gum" >&2
-  echo "Examples:"
-  echo "  macOS:   brew install gum"
-  echo "  Linux:   brew install gum   # or: go install github.com/charmbracelet/gum@latest"
   exit 1
 fi
 
+# ---- Go to repo root ------------------------------------------------------
+TOP="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [[ -z "$TOP" ]]; then
+  echo "Not inside a git repository." >&2
+  exit 1
+fi
+# Always operate at repo root to normalize paths
+pushd "$TOP" >/dev/null
+trap 'popd >/dev/null' EXIT
+
 # ---- Helpers --------------------------------------------------------------
+empty_blob() { git hash-object -t blob -w --stdin </dev/null; }
+is_tracked() { git ls-files --error-unmatch -z -- "$1" >/dev/null 2>&1; }
 
-# Compute the empty-blob id (works for SHA-1 or SHA-256 repos)
-empty_blob() {
-  git hash-object -t blob -w --stdin </dev/null
-}
-
-# Is a path tracked by git?
-is_tracked() {
-  git ls-files --error-unmatch -z -- "$1" >/dev/null 2>&1
-}
-
-# Label: [U] untracked, [M] modified-but-unstaged
 status_label() {
   local p="$1"
   if ! is_tracked "$p"; then
@@ -40,29 +38,18 @@ status_label() {
   fi
 }
 
-# File mode by executable bit
 file_mode() {
   local p="$1"
   if [ -x "$p" ]; then printf "100755"; else printf "100644"; fi
 }
 
-# Stage a single path as empty in the index (do not touch working tree)
 stage_as_empty() {
   local p="$1"
-  # skip symlink
-  if [ -L "$p" ]; then
-    echo "skip symlink: $p" >&2
-    return 0
-  fi
-  # skip missing
-  if [ ! -e "$p" ]; then
-    echo "skip missing: $p" >&2
-    return 0
-  fi
+  # skip symlink and missing
+  if [ -L "$p" ]; then echo "skip symlink: $p" >&2; return 0; fi
+  if [ ! -e "$p" ]; then echo "skip missing: $p" >&2; return 0; fi
 
-  local MODE; MODE=$(file_mode "$p")
-  local EMPTY; EMPTY=$(empty_blob)
-
+  local MODE EMPTY; MODE=$(file_mode "$p"); EMPTY=$(empty_blob)
   if is_tracked "$p"; then
     git update-index --cacheinfo "$MODE" "$EMPTY" "$p"
   else
@@ -70,8 +57,7 @@ stage_as_empty() {
   fi
 }
 
-# ---- Collect candidates ---------------------------------------------------
-
+# ---- Collect candidates (repo-root-relative) ------------------------------
 declare -a CANDIDATES=()
 declare -A DEDUPE=()
 
@@ -98,20 +84,15 @@ if (( ${#CANDIDATES[@]} == 0 )); then
   exit 0
 fi
 
-# Build menu items: "[U] path" or "[M] path"
-declare -a MENU_ITEMS=()
-declare -a U_ONLY=()
-declare -a M_ONLY=()
+# ---- Menu -----------------------------------------------------------------
+declare -a MENU_ITEMS=() U_ONLY=() M_ONLY=()
 for p in "${CANDIDATES[@]}"; do
   label="$(status_label "$p")"
   MENU_ITEMS+=("$label $p")
-  if [[ "$label" == "[U]" ]]; then U_ONLY+=("$p"); fi
-  if [[ "$label" == "[M]" ]]; then M_ONLY+=("$p"); fi
+  [[ "$label" == "[U]" ]] && U_ONLY+=("$p")
+  [[ "$label" == "[M]" ]] && M_ONLY+=("$p")
 done
 
-# ---- Quick pre-selection --------------------------------------------------
-# Allow the user to type 'u'/'m'/'um'/'mu'/'a' to auto-select,
-# otherwise fall back to the interactive multi-select.
 gum style --bold --underline "Select files to stage as EMPTY (index only):"
 gum style "Tip: Press <enter> for interactive selection; or type:"
 gum style --border normal --padding "0 1" \
@@ -122,38 +103,24 @@ gum style --border normal --padding "0 1" \
 "enter => interactively select"
 
 PRESEL="$(gum input --placeholder "enter to choose manually, or u/m/um/a")"
-PRESEL="${PRESEL,,}"  # to lowercase
+PRESEL="${PRESEL,,}"
 
 declare -a TO_STAGE=()
+case "${PRESEL:-}" in
+  u) TO_STAGE=("${U_ONLY[@]}") ;;
+  m) TO_STAGE=("${M_ONLY[@]}") ;;
+  um|mu|a) TO_STAGE=("${CANDIDATES[@]}") ;;
+  "" ) ;;
+  * ) gum style --foreground 244 "Unrecognized input: '$PRESEL' — falling back to interactive selection." ;;
+esac
 
-if [[ -n "$PRESEL" ]]; then
-  case "$PRESEL" in
-    u)
-      TO_STAGE=("${U_ONLY[@]}")
-      ;;
-    m)
-      TO_STAGE=("${M_ONLY[@]}")
-      ;;
-    um|mu|a)
-      TO_STAGE=("${CANDIDATES[@]}")
-      ;;
-    *)
-      gum style --foreground 244 "Unrecognized input: '$PRESEL' — falling back to interactive selection."
-      ;;
-  esac
-fi
-
-# ---- Interactive selection with gum (fallback) ----------------------------
 if (( ${#TO_STAGE[@]} == 0 )); then
   gum style "Use arrows/typing to filter; <tab> to multi-select; <enter> to confirm."
   SELECTED=$(
     printf "%s\n" "${MENU_ITEMS[@]}" \
     | gum choose --no-limit --cursor-prefix " " --selected-prefix " " --unselected-prefix "  "
   )
-  if [[ -z "${SELECTED// }" ]]; then
-    gum style --foreground 244 "Cancelled."
-    exit 0
-  fi
+  [[ -z "${SELECTED// }" ]] && { gum style --foreground 244 "Cancelled."; exit 0; }
   mapfile -t TO_STAGE < <(printf "%s\n" "$SELECTED" | sed -E 's/^\[[^]]+\] //')
 fi
 
@@ -190,4 +157,6 @@ bash -c '
 
 gum style --foreground 212 --bold "Done."
 gum style "Verify:"
-gum style --border normal --padding "0 1" "git diff --cached --stat" "git show :<path> | wc -c  # should be 0"
+gum style --border normal --padding "0 1" \
+"git diff --cached --stat" \
+"git show :<path> | wc -c  # should be 0"
