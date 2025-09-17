@@ -6,7 +6,7 @@ alias grep='grep --color=auto'
 alias h=history
 alias jobs='jobs -l'
 #alias log=logout
-alias cs='/usr/bin/clear && fastfetch --config arch'
+alias cls='/usr/bin/clear && fastfetch --config arch'
 alias edit=$EDITOR
 alias nvim=/home/lihuax/Documents/bin/nvim_auto
 
