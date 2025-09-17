@@ -75,19 +75,6 @@ keymap.set("n", "<leader>tn", "<cmd>tabn<CR>", { desc = "Go to next tab" }) --  
 keymap.set("n", "<leader>tp", "<cmd>tabp<CR>", { desc = "Go to previous tab" }) --  go to previous tab
 keymap.set("n", "<leader>tf", "<cmd>tabnew %<CR>", { desc = "Open current buffer in new tab" }) --  move current buffer to new tab
 
--- switch tab
-local keys = "123456789"
-for i = 1, #keys do
-	local key = keys:sub(i, i)
-	vim.keymap.set("n", string.format("<leader>%s", key), function()
-		vim.cmd.tabnext(i)
-	end, { noremap = true, silent = true })
-end
--- if 0 jump to last tab
-vim.keymap.set("n", "<leader>0", function()
-	vim.cmd.tabnext(vim.fn.tabpagenr("$"))
-end, { noremap = true, silent = true })
-
 -----------------
 -- Visual mode --
 -----------------

@@ -2,52 +2,10 @@
 # commit_composer.sh
 set -euo pipefail
 
-
-# Helper: wait for user to press Enter before exiting
-wait_exit() {
-  echo
-  read -p "Press Enter to exit..." _
-  exit 1
-}
-
 # Ensure staged changes exist
 if git diff --cached --quiet; then
   echo "❌ No staged changes. Please 'git add' files before committing."
-  wait_exit
-fi
-
-# Ensure git config user.name exists
-if [ -z "$(git config --get user.name)" ]; then
-  echo "❌ Git config 'user.name' is not set. Please run:"
-  echo "   git config --global user.name \"Your Name\""
-  wait_exit
-fi
-
-# Ensure git config user.email exists
-if [ -z "$(git config --get user.email)" ]; then
-  echo "❌ Git config 'user.email' is not set. Please run:"
-  echo "   git config --global user.email \"your@email.com\""
-  wait_exit
-fi
-
-# --- Preview staged changes with gum styling ---
-
-# 1) Show a brief stat summary with gum style
-staged_stat="$(git diff --cached --stat)"
-if [ -z "$staged_stat" ]; then
-  staged_stat="(no changes in stat output)"
-fi
-
-gum style \
-  --border rounded \
-  --padding "1 2" \
-  --border-foreground 212 \
-  "Staged changes (stat)" "$staged_stat"
-
-# 2) Offer to view full staged diff via delta; user can skip
-if gum confirm "View full staged diff with delta?"; then
-  # Use git diff piped to delta for prettified output; paged by less
-  git -c core.pager=delta diff --cached
+  exit 1
 fi
 
 # Choose commit type
@@ -60,7 +18,7 @@ scope="$(gum input --placeholder "scope (optional)")"
 subject="$(gum input --placeholder "short, imperative subject")"
 if [ -z "$subject" ]; then
   echo "❌ Subject cannot be empty."
-  wait_exit
+  exit 1
 fi
 
 # Body (multi-line, optional, Ctrl+D to finish)
@@ -80,12 +38,12 @@ if gum confirm "Use this commit message?"; then
   if [ -n "$body" ]; then
     git commit -m "$header" -m "$body" || {
       echo "❌ git commit failed."
-      wait_exit
+      exit 1
     }
   else
     git commit -m "$header" || {
       echo "❌ git commit failed."
-      wait_exit
+      exit 1
     }
   fi
 else

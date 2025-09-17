@@ -84,25 +84,6 @@ if (( ${#CANDIDATES[@]} == 0 )); then
   exit 0
 fi
 
-# --- Preview unstaged changes before selection ---
-gum style --bold --underline "Current unstaged new files:"
-
-# 1) show tracked unstaged changes
-# UNSTAGED_DIFF="$(git diff --color=always)"
-# if [ -n "$UNSTAGED_DIFF" ]; then
-#   echo "$UNSTAGED_DIFF" | gum pager --height 12
-# else
-#   gum style --foreground 244 "No unstaged changes."
-# fi
-
-# 2) show untracked files
-UNTRACKED="$(git ls-files --others --exclude-standard)"
-if [ -n "$UNTRACKED" ]; then
-  echo "$UNTRACKED" | gum style --border normal --padding "0 1" --foreground 212
-else
-  gum style --foreground 244 "No untracked files."
-fi
-
 # ---- Menu -----------------------------------------------------------------
 declare -a MENU_ITEMS=() U_ONLY=() M_ONLY=()
 for p in "${CANDIDATES[@]}"; do
@@ -113,6 +94,7 @@ for p in "${CANDIDATES[@]}"; do
 done
 
 gum style --bold --underline "Select files to stage as EMPTY (index only):"
+gum style "Tip: Press <enter> for interactive selection; or type:"
 gum style --border normal --padding "0 1" \
 "u     => select all [U]" \
 "m     => select all [M]" \
