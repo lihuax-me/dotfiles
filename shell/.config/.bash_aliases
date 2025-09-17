@@ -8,9 +8,7 @@ alias jobs='jobs -l'
 #alias log=logout
 alias cls='clear && fastfetch --config arch'
 alias edit=$EDITOR
-alias nvim='nvim --listen /tmp/nvim-server.pipe'
-alias vim='/usr/bin/nvim'
-alias vi='/usr/bin/vim'
+alias nvim=/home/lihuax/Documents/bin/nvim_auto
 
 # Some better definitions
 alias cp="cp -i"                          # confirm before overwriting something

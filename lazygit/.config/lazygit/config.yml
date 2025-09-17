@@ -48,8 +48,8 @@ git:
   allBranchesLogCmds:
     - git log --graph --all --color=always --abbrev-commit  --decorate --format=format:'%C(bold blue)%h%C(reset) - %C(bold cyan)%aD%C(reset) %C(bold green)(%ar)%C(reset)%C(auto)%d%C(reset)%n''          %C(white)%s%C(reset) %C(dim white)- %an%C(reset)'
 os:
-  editCommand: "nvim"
-  editCommandTemplate: "{{editor}} --server $NVIM --remote-tab {{filename}}"
+  edit: "nvim {{filename}}"
+  editAtLine: "nvim +{{line}} {{filename}}"
 disableStartupPopups: true
 notARepository: "skip" # one of: 'prompt' | 'create' | 'skip' | 'quit'
 promptToReturnFromSubprocess: false
