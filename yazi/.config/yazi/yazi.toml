@@ -88,11 +88,24 @@ suppress_preload = false
 
 [plugin]
 
+# prepend_preloaders = [
+#     # Office Documents
+#     { mime = "application/openxmlformats-officedocument.*", run = "office" },
+#     { mime = "application/oasis.opendocument.*", run = "office" },
+#     { mime = "application/ms-*", run = "office" },
+#     { mime = "application/msword", run = "office" },
+#     { name = "*.docx", run = "office" },
+# ]
+
 prepend_previewers = [
-	{ name = "*.{bin,exe}", run = "hevi" },
   # Bin files
-  { mime = "application/vnd.microsoft.portable-executable", run = "hevi" },
-  { mime = "application/x-pie-executable", run = "hevi" },
+	{ name = "*.{bin,exe}", run = "hevi" },
+  # Office Documents
+  { mime = "application/openxmlformats-officedocument.*", run = "office" },
+  { mime = "application/oasis.opendocument.*", run = "office" },
+  { mime = "application/ms-*", run = "office" },
+  { mime = "application/msword", run = "office" },
+  { name = "*.docx", run = "office" },
 ]
 
 fetchers = [
