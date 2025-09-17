@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+# base pipe name
+BASE="/tmp/nvim-server"
+i=0
+
+# find available pipe name
+while true; do
+  if [ $i -eq 0 ]; then
+    CANDIDATE="${BASE}.pipe"
+  else
+    CANDIDATE="${BASE}${i}.pipe"
+  fi
+
+  # check if file/socket exists
+  if [ ! -e "$CANDIDATE" ]; then
+    export NVIM_LISTEN_ADDRESS="$CANDIDATE"
+    exec nvim --listen "$NVIM_LISTEN_ADDRESS" "$@"
+    break
+  fi
+
+  i=$((i+1))
+done
+
