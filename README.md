@@ -3,6 +3,8 @@
 > 🧠 Personal configuration files for a Linux development environment.  
 > 📍 Primarily used on Arch Linux with Wayland (Hyprland) and Zsh shell.
 
+![screenshots](.img/2025-09-21-21-07-01.png)
+
 ## 📦 Dependencies
 
 ### General
