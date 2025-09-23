@@ -225,6 +225,10 @@ elif [[ -n "$ZSH_VERSION" ]]; then
 fi
 
 
+if not [ -n "$TMUX" ] || [ "$TERM" = "xterm-256color" ]; then
+  ( nohup gh contribs -g square -s gh_contrast -w 20 >"/tmp/gh_contri" 2>&1 < /dev/null & ) >/dev/null 2>&1
+fi
+
 if [ -n "$NVIM" ]; then
   :
 elif [ -n "$TMUX" ] || [ "$TERM" = "xterm-256color" ]; then
