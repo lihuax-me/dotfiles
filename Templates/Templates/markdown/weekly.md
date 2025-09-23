@@ -1,103 +1,46 @@
 ---
-title: "{{_file_name_}}"
-type: "weekly"
+date: {{_lua:os.date("%Y-%m-%dT%H:%M:00")_}}
+updated: {{_lua:os.date("%Y-%m-%dT%H:%M:00")_}}
 author: {{_author_}}
-date: {{_lua:os.date("%Y-%m-%dT%H:%M:%S")_}}
-updated: {{_lua:os.date("%Y-%m-%dT%H:%M:%S")_}}
-week: 20{{_lua:os.date("%y")_}}W{{_weeknum_}}
 tags: [weekly]
-cssclasses: [cards, cards-cols-3]
 ---
 
-## goal
+## 🎯Tasks
 
-- [ ] 
-- [ ] 
-- [ ] 
+- [ ] 每日早起（目标：每天 8:00 起床）
+  - [ ] 周日 8:45
+  - [ ] 周一 8:45
+  - [ ] 周二 8:45
+  - [ ] 周三 8:45
+  - [ ] 周四 8:45
+  - [ ] 周五 8:45
+  - [ ] 周六 8:45
+- [ ] 背红宝书单词（目标：每天 50 词）
+  - [ ] 周日 50 
+  - [ ] 周一 50
+  - [ ] 周二 50
+  - [ ] 周三 50
+  - [ ] 周四 50
+  - [ ] 周五 50
+  - [ ] 周六 50
+- [ ] 政治课 (目标：每天1节)
+  - [ ] 周日 
+  - [ ] 周一
+  - [ ] 周二
+  - [ ] 周三
+  - [ ] 周四
+  - [ ] 周五
+  - [ ] 周六
+- [ ] 复习专业课 (目标：每天一节)
+  - [ ] 周日 
+  - [ ] 周一
+  - [ ] 周二
+  - [ ] 周三
+  - [ ] 周四
+  - [ ] 周五
+  - [ ] 周六
 
-## dataview
-
-```dataviewjs
-// helper: escape special chars so tasks不会破坏html
-function escapeHtml(str) {
-  return str.replace(/[&<>"']/g, function(m) {
-    switch (m) {
-      case "&": return "&amp;";
-      case "<": return "&lt;";
-      case ">": return "&gt;";
-      case '"': return "&quot;";
-      case "'": return "&#039;";
-    }
-  });
-}
-
-// 1) 当前周
-const week = dv.current().week ?? dv.current().file.frontmatter.week;
-
-// 2) 抓取本周日记
-const pages = dv.pages('"diary/20{{_lua:os.date("%y")_}}"')
-  .where(p => p.type === "diary" && p.week === week)
-  .sort(p => p.file.name, 'asc');
-
-// 3) 表头 & 行数据
-const headers = ["Day", "Meta", "Habits", "Progress"];
-const rows = [];
-
-for (const p of pages) {
-  const tasks = (p.file.tasks ?? []).filter(t => t.text.includes("#habit"));
-  if (tasks.length === 0) continue;
-
-  const done  = tasks.filter(t => t.completed).length;
-  const total = tasks.length;
-  const rate  = total ? Math.round(100 * done / total) : 0;
-
-  // ---- Meta（mood + weather）
-  const mood = p.mood ?? "-";
-  const weather = Array.isArray(p.weather) ? p.weather.join(" ") : (p.weather ?? "-");
-  const meta = `Mood: ${mood} | Weather: ${weather}`;
-
-  // ---- Habits
-  const habitsEl = document.createElement("div");
-  habitsEl.innerHTML = tasks
-    .map(t => `${t.completed ? "[x]" : "[ ]"} ${escapeHtml(t.text)}`)
-    .join("<br>");
-
-  // ---- Progress
-  const progressEl = document.createElement("div");
-  const barWrap = document.createElement("div");
-  barWrap.className = "dv-card-progress";
-  const bar = document.createElement("div");
-  bar.className = "bar";
-  bar.style.width = `${rate}%`;
-  barWrap.appendChild(bar);
-
-  const txt = document.createElement("div");
-  txt.className = "dv-progress-text";
-  txt.textContent = `${done}/${total} (${rate}%)`;
-
-  progressEl.appendChild(barWrap);
-  progressEl.appendChild(txt);
-
-  // ---- row
-  rows.push([
-    p.file.link,     // Day
-    meta,            // Meta
-    habitsEl,        // Habits
-    progressEl       // Progress
-  ]);
-}
-
-// 4) render table
-dv.table(headers, rows);
-```
-
-## review
-
-* 成果：
-* 问题：
-* 下周唯一优先：
-
-## navigator
+## 🗓️days
 
 {{_sunday_}}  
 {{_monday_}}  
@@ -107,4 +50,9 @@ dv.table(headers, rows);
 {{_friday_}}  
 {{_saturday_}}  
 
+## 💭review
+
+---
+
 <<[[20{{_lua:os.date("%y")_}}W{{_lastweeknum_}}]] || [[20{{_lua:os.date("%y")_}}W{{_nextweeknum_}}]]>>
+
