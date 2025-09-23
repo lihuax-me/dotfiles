@@ -3,9 +3,24 @@ return {
 	priority = 1000,
 	lazy = false,
 	opts = {
-		-- your configuration comes here
-		-- or leave it empty to use the default settings
-		-- refer to the configuration section below
+		scroll = {
+			animate = {
+				duration = { step = 15, total = 250 },
+				easing = "linear",
+			},
+			-- faster animation when repeating scroll after delay
+			animate_repeat = {
+				delay = 100, -- delay in ms before using the repeat animation
+				duration = { step = 5, total = 50 },
+				easing = "linear",
+			},
+			-- what buffers to animate
+			filter = function(buf)
+				return vim.g.snacks_scroll ~= false
+					and vim.b[buf].snacks_scroll ~= false
+					and vim.bo[buf].buftype ~= "terminal"
+			end,
+		},
 		bigfile = { enabled = false },
 		notifier = { enabled = false },
 		quickfile = { enabled = false },
@@ -429,6 +444,20 @@ return {
 				Snacks.zen.zoom()
 			end,
 			desc = "Toggle Zoom",
+		},
+		{
+			"<leader>.",
+			function()
+				Snacks.scratch()
+			end,
+			desc = "Toggle Scratch Buffer",
+		},
+		{
+			"<leader>S",
+			function()
+				Snacks.scratch.select()
+			end,
+			desc = "Select Scratch Buffer",
 		},
 	},
 }
